@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""PostToolUse(Edit|Write|MultiEdit): run detekt for the Gradle project owning the edited .kt file.
+"""PostToolUse(Edit|Write|MultiEdit): run detekt for the Gradle project owning the edited .kt/.kts file.
 
 Only findings in the edited file are reported (exit 2 -> shown to Claude), so existing issues
-elsewhere don't drown the feedback. Non-Kotlin files and files outside a project's src/ are ignored.
+elsewhere don't drown the feedback. Build scripts (build.gradle.kts, settings.gradle.kts) are linted as part of
+their project; other files outside a project's src/ are ignored. Edits made through Bash bypass this hook - the
+Stop-time `check` gate (check_changed_modules.py) catches those.
 """
 
 import json
@@ -14,19 +16,21 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gradle_modules  # noqa: E402
 
+SETTINGS_FILES = ("settings.gradle.kts",)
 FINDING = re.compile(r"^[ew]: (?P<path>/.+?\.kts?):(?P<line>\d+):(?P<col>\d+) (?P<message>.*)$")
 
 
 def main() -> int:
     event = json.load(sys.stdin)
     file_path = event.get("tool_input", {}).get("file_path", "")
-    if not file_path.endswith(".kt"):
+    if not file_path.endswith((".kt", ".kts")):
         return 0
     edited = pathlib.Path(file_path).resolve()
     root = gradle_modules.git_toplevel(edited)
     if root is None or not edited.is_file():
         return 0
-    module = gradle_modules.owning_module(edited.relative_to(root).as_posix(), gradle_modules.module_dirs(root))
+    relative = edited.relative_to(root).as_posix()
+    module = "" if relative in SETTINGS_FILES else gradle_modules.owning_module(relative, gradle_modules.module_dirs(root))
     if module is None:
         return 0
 

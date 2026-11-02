@@ -1,6 +1,19 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/preflight.py\"",
+            "timeout": 10,
+            "statusMessage": "Harness preflight"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -19,9 +32,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/test_changed_modules.py\"",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_changed_modules.py\"",
             "timeout": 900,
-            "statusMessage": "Testing changed Gradle projects"
+            "statusMessage": "Running check on changed Gradle projects"
           }
         ]
       }
@@ -32,9 +45,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/test_changed_modules.py\"",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_changed_modules.py\"",
             "timeout": 900,
-            "statusMessage": "Testing changed Gradle projects"
+            "statusMessage": "Running check on changed Gradle projects"
           }
         ]
       }
@@ -44,9 +57,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/test_changed_modules.py\"",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_changed_modules.py\"",
             "timeout": 900,
-            "statusMessage": "Testing changed Gradle projects"
+            "statusMessage": "Running check on changed Gradle projects"
           }
         ]
       }

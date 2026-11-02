@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Stop / SubagentStop / TaskCompleted: run `test` (incl. ArchUnit) for Gradle projects whose build inputs changed.
+"""Stop / SubagentStop / TaskCompleted: run `check` (tests incl. ArchUnit + detekt) for Gradle projects whose build inputs changed.
+
+This is the gate that also catches edits the per-edit detekt hook never sees (Bash/sed/heredoc writes).
 
 A project counts as changed when the content of its src/ + build file (or of a global build file such as
 settings.gradle.kts, gradle/libs.versions.toml, buildSrc/) differs from the last green run. Nothing changed
@@ -29,7 +31,7 @@ def load(path: pathlib.Path) -> dict:
 
 
 def failure_summary(output: str) -> str:
-    """Failed tests with their first stack lines, compiler errors and Gradle's 'What went wrong'."""
+    """Failed tests with their first stack lines, compiler errors, detekt findings and Gradle's 'What went wrong'."""
     lines = output.splitlines()
     picked: list[str] = []
     i = 0
@@ -59,10 +61,10 @@ def main() -> int:
     if root is None or not (root / "gradlew").is_file():
         return 0
 
-    with open(gradle_modules.state_file(root, "tests.lock"), "w") as lock:
+    with open(gradle_modules.state_file(root, "check.lock"), "w") as lock:
         # Parallel subagents finishing together: one runs Gradle, the others then see the fresh state.
         fcntl.flock(lock, fcntl.LOCK_EX)
-        state_path = gradle_modules.state_file(root, "tests.json")
+        state_path = gradle_modules.state_file(root, "check.json")
         state = load(state_path)
         current = gradle_modules.fingerprints(root)
         changed = sorted(m for m, digest in current.items() if state["green"].get(m) != digest)
@@ -71,10 +73,10 @@ def main() -> int:
         to_run = [m for m in changed if state["failed"].get(m) != current[m]]
         if not to_run:
             still_failing = ", ".join(gradle_modules.gradle_path(m) for m in changed)
-            print(json.dumps({"systemMessage": f"Tests still failing (unchanged since last run): {still_failing}"}))
+            print(json.dumps({"systemMessage": f"check still failing (unchanged since last run): {still_failing}"}))
             return 0
 
-        tasks = [gradle_modules.task_path(m, "test") for m in to_run]
+        tasks = [gradle_modules.task_path(m, "check") for m in to_run]
         run = subprocess.run(
             [str(root / "gradlew"), "--console=plain", "--continue", *tasks],
             cwd=root, capture_output=True, text=True,
@@ -84,7 +86,7 @@ def main() -> int:
                 state["green"][module] = current[module]
                 state["failed"].pop(module, None)
             state_path.write_text(json.dumps(state, indent=2))
-            print(json.dumps({"systemMessage": "Tests passed: " + " ".join(tasks)}))
+            print(json.dumps({"systemMessage": "check passed: " + " ".join(tasks)}))
             return 0
 
         for module in to_run:
@@ -93,9 +95,11 @@ def main() -> int:
 
     failed_tasks = sorted(set(re.findall(r"^> Task (\S+) FAILED", run.stdout + run.stderr, re.M)))
     print(
-        f"Tests failed for changed Gradle project(s) - ran {' '.join(tasks)}; failed tasks: {', '.join(failed_tasks) or 'see below'}.\n"
-        "The work is not done until these pass. Fix the code (not the tests, unless the test itself is wrong), "
-        "or report the failure explicitly if it can't be fixed. Details: Gradle MCP `query_build` or build/reports/tests/.\n\n"
+        f"check failed for changed Gradle project(s) - ran {' '.join(tasks)}; failed tasks: {', '.join(failed_tasks) or 'see below'}.\n"
+        "The work is not done until these pass. Fix the code (not the tests, unless the test itself is wrong; "
+        "never detekt.yml or the baseline), "
+        "or report the failure explicitly if it can't be fixed. Details: Gradle MCP `query_build`, build/reports/tests/ "
+        "or build/reports/detekt/.\n\n"
         + failure_summary(run.stdout + run.stderr),
         file=sys.stderr,
     )

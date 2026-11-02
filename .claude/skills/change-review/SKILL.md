@@ -61,7 +61,7 @@ If no spec can be found, tell the user and run quality reviewers only - do not i
 
 ### 3. Collect test evidence (once, before dispatch)
 
-Run tests and static analysis yourself so the reviewers don't race on Gradle and all see the same results. Use the Gradle MCP (`using-gradle`): `gradle` with `test detekt`, then `query_build` for failures (`kind=TESTS` for failing tests, detekt findings from the task output / `build/reports/detekt/`).
+Run tests and static analysis yourself so the reviewers don't race on Gradle and all see the same results. Use the Gradle MCP (`using-gradle`): `gradle` with `check` (tests + detekt, the same gate the Stop hook runs), then `query_build` for failures (`kind=TESTS` for failing tests, detekt findings from the task output / `build/reports/detekt/`).
 
 Keep the outcome (pass/fail, failing tests, detekt findings). A red build or a detekt finding in changed code is a finding by itself - include it, don't fix it.
 
@@ -83,7 +83,7 @@ Reviewers must report findings in the shared format below. Don't let a reviewer 
 - **Re-rank** by severity across all reports; drop findings you can refute by reading the cited line (check before dropping - don't drop on a hunch).
 - **Coverage check**: every planned reviewer reported back; if one failed or ran out of budget, re-dispatch it rather than silently skipping its focus.
 - **Verdict**: `REQUEST_CHANGES` if any `blocker` or `major` exists, otherwise `APPROVE` (list `minor`/`nit` as optional).
-- Do **not** apply fixes unless the user asks. When they do, fix test-first (see `tdd`) and re-run the review on the new diff.
+- Do **not** apply fixes yourself. When the user (or `/ship`) asks for fixes, hand the `blocker`/`major` findings verbatim to the `implementer` agent in fix mode, then re-run this review on the new diff.
 
 ## Finding format (all reviewers)
 
