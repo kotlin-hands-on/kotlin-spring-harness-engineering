@@ -36,7 +36,7 @@ Tests should live at the public boundary where behavior can be observed; never t
 ## Rules
 
 - **Red before green.** Write the failing tests first, only add stubs to make them compile. Only write passing code after.
-- **Refactor is not part of the loop.** It belongs to the review stage (`code-review` skill): keeping red -> green minimal makes each step small and verifiable, and the review sees the green code with fresh, independent eyes before it is reshaped.
+- **Refactor is not part of the loop.** It belongs to the review stage (`change-review` skill): keeping red -> green minimal makes each step small and verifiable, and the review sees the green code with fresh, independent eyes before it is reshaped.
 - **Every bug fix ships with a red-then-green test** that fails on the old code with the *user-visible* symptom.
 
 ## MUST DO

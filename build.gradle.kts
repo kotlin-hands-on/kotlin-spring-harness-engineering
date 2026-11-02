@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
 	kotlin("jvm") version "2.4.21"
@@ -68,6 +69,8 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 	testLogging {
 		events("passed", "skipped", "failed")
+		// full assertion message incl. power-assert diagram - this is what agents and the test hook see
+		exceptionFormat = TestExceptionFormat.FULL
 	}
 }
 

@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: change-review
 description: Review a change (working tree, branch, commit range or PR) by dispatching parallel read-only subagents - spec-compliance reviewer(s) check the implementation against its spec (OpenSpec change, issue, task), focused quality reviewers check architecture, code standards, design patterns, testing and whether docs are up to date. Use when the user asks to review code, a diff, a PR or an implemented change, before archiving an OpenSpec change, or for the refactor stage after a TDD red -> green loop.
 ---
 
@@ -67,7 +67,7 @@ Keep the outcome (pass/fail, failing tests, detekt findings). A red build or a d
 
 ### 4. Dispatch all reviewers in parallel
 
-Plan the roster (step "Sizing the dispatch"), then spawn **all subagents in a single message** (Claude Code: one `Agent`/Task tool call per reviewer in one response, general-purpose type) so they run concurrently. Fill the template from the reference file for each; every prompt must be self-contained, because subagents see nothing of this conversation:
+Plan the roster (step "Sizing the dispatch"), then spawn **all subagents in a single message** (Claude Code: one `Agent` tool call per reviewer in one response, `subagent_type: "reviewer"` - the read-only agent in `.claude/agents/reviewer.md`) so they run concurrently. Fill the template from the reference file for each; every prompt must be self-contained, because subagents see nothing of this conversation:
 
 - the scope command and changed-file list from step 1 (narrowed to the reviewer's module/files if you split by area),
 - the spec file paths / text from step 2 (spec reviewers audit it; quality reviewers get it as context only),

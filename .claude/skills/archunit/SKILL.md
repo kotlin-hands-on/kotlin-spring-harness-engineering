@@ -7,7 +7,7 @@ description: Architecture tests with ArchUnit 1.5 (archunit-junit6) in Kotlin/Sp
 
 ArchUnit imports compiled bytecode (`build/classes/...`) and checks rules on it: which packages may depend on which, which layers may access which, no cycles, naming and annotation conventions. A failing rule throws an `AssertionError` that lists every violation with its class and line.
 
-Prerequisites: `kotlin-testing` (JUnit 6 stack). Companion skills: `tdd` (a new rule follows red → green too), `code-review` (the `architecture` focus can propose rules), `spring-testing`.
+Prerequisites: `kotlin-testing` (JUnit 6 stack). Companion skills: `tdd` (a new rule follows red → green too), `change-review` (the `architecture` focus can propose rules), `spring-testing`.
 
 Note: architecture tests are the one deliberate **white-box** test kind. They check structure, not behaviour, so the `tdd` rule "test through the public interface" does not apply to them. They never replace behaviour tests.
 
@@ -58,7 +58,7 @@ class ArchitectureTest {
 ## SHOULD DO
 
 - **Start small and grow**: dependency direction + `slices().matching("<root>.(*)..").should().beFreeOfCycles()` + `GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION` give the most value per line. In a fresh project these fail with "failed to check any classes" until there are subpackages and classes with fields, so add each rule together with the first code it guards.
-- **Encode decisions when they are made**: an ADR, an OpenSpec `design.md` decision or a `code-review` architecture finding → a rule in the same change.
+- **Encode decisions when they are made**: an ADR, an OpenSpec `design.md` decision or a `change-review` architecture finding → a rule in the same change.
 - **`ensureAllClassesAreContainedInArchitecture()`** on layered/onion rules, so new classes can't slip outside every layer unnoticed.
 - **`optionalLayer(...)` / `withOptionalLayers(true)`** for layers the code doesn't have yet. Otherwise an empty layer fails the rule, which is intentional (`archRule.failOnEmptyShould=true` by default).
 - **Exclude compiler-generated classes** in naming rules: `areTopLevelClasses()`, `areNotAnonymousClasses()`, or skip `.*Kt` file facades and `\$Companion` / `\$WhenMappings` / `\$DefaultImpls` names.

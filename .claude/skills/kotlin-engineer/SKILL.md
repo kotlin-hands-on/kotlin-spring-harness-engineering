@@ -24,7 +24,7 @@ Baseline Kotlin knowledge (data/sealed/value classes, scope functions, null-safe
   * `-Xcollection-literals` - `val ids: Set<Long> = [1, 2]` instead of `setOf(...)`; give own collection types an `operator fun of` → `references/collection-literals.md`
   * `-Xintrinsic-const-evaluation` - derive `const val`s from other consts (`"$PREFIX/users"`, `RETRIES * BASE_MS`) → `references/compile-time-constants.md`
   * `-Xreturn-value-checker=check` - annotate value/result types with `@MustUseReturnValues`, never drop a result silently → `references/return-value-checker.md`
-  * If a project lacks a flag, add it (and fix the fallout) as part of the change - don't write positional/`listOf` code to dodge it. This is a policy-mandated change, not scope creep (`code-review` treats it that way).
+  * If a project lacks a flag, add it (and fix the fallout) as part of the change - don't write positional/`listOf` code to dodge it. This is a policy-mandated change, not scope creep (`change-review` treats it that way).
 
 ## MUST NOT DO
 

@@ -38,3 +38,7 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Claude Code ###
+__pycache__/
+.claude/settings.local.json
