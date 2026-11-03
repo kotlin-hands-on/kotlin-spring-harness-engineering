@@ -30,4 +30,16 @@ class ArchitectureTest {
     // No production class has fields yet, so this may check zero classes; FieldInjectionRuleTest proves it can fail.
     @ArchTest
     val no_field_injection: ArchRule = GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION.allowEmptyShould(true)
+
+    // No ledger or persistence class exists yet, so this may check zero classes; task 7.1 proved it bites once
+    // with a temporary violating class (verify-then-revert, same as build-foundation A1).
+    @ArchTest
+    val ledger_and_persistence_do_not_depend_on_shared_api: ArchRule = noClasses()
+        .that().resideInAnyPackage("..ledger..", "..persistence..")
+        .should().dependOnClassesThat().resideInAPackage("..shared.api..")
+        .allowEmptyShould(true)
+        .because(
+            "wire DTOs in ..shared.api.. are the API contract; ledger event payloads and persistence types are " +
+                "separate types even where their JSON shapes coincide (design D7)",
+        )
 }
