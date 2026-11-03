@@ -28,9 +28,20 @@ TOOLS = {
 
 
 def required_jdk(root: pathlib.Path) -> int | None:
-    build = root / "build.gradle.kts"
-    match = re.search(r"jvmToolchain\((\d+)\)", build.read_text()) if build.is_file() else None
-    return int(match.group(1)) if match else None
+    """JDK major from `jdk = "N"` in the [versions] table of gradle/libs.versions.toml (None if absent)."""
+    catalog = root / "gradle" / "libs.versions.toml"
+    if not catalog.is_file():
+        return None
+    in_versions = False
+    for line in catalog.read_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_versions = stripped == "[versions]"
+            continue
+        match = re.fullmatch(r'jdk\s*=\s*"(\d+)"\s*(#.*)?', stripped) if in_versions else None
+        if match:
+            return int(match.group(1))
+    return None
 
 
 def jdk_homes() -> list[pathlib.Path]:
@@ -83,7 +94,7 @@ def main() -> int:
     wanted = required_jdk(root)
     if wanted is not None and not any(jdk_major(h) == wanted for h in jdk_homes()):
         problems.append(
-            f"No JDK {wanted} found (jvmToolchain({wanted})) and no toolchain resolver plugin is configured, "
+            f"No JDK {wanted} found (the `jdk` version in gradle/libs.versions.toml) and no toolchain resolver plugin is configured, "
             f"so Gradle cannot provision one - every build and hook will fail. Install a JDK {wanted}."
         )
 
