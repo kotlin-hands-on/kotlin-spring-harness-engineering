@@ -4,7 +4,7 @@ description: Turns a feature request, bug or idea into an implementable plan - a
 disallowedTools: Agent, NotebookEdit, mcp__gradle__gradle, mcp__gradle__kotlin_repl
 skills:
   - openspec-propose
-model: opus
+model: sonnet
 effort: high
 color: purple
 hooks:
