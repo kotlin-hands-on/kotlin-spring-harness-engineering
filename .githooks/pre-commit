@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Pre-commit: run all verification (tests + detekt) via `check`. Bypass in emergencies with `git commit --no-verify`.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+echo "pre-commit: running ./gradlew check ..."
+if ! ./gradlew check --console=plain -q; then
+  echo "pre-commit: check failed - commit aborted." >&2
+  exit 1
+fi
