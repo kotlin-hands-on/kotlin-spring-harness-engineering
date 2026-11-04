@@ -1,6 +1,11 @@
-package com.example.harnessengineeringspring.member
+package com.example.harnessengineeringspring.member.api
 
-import com.example.harnessengineeringspring.group.GroupToken
+import com.example.harnessengineeringspring.group.ResolvedGroup
+import com.example.harnessengineeringspring.member.AddMember
+import com.example.harnessengineeringspring.member.DeleteMember
+import com.example.harnessengineeringspring.member.MemberId
+import com.example.harnessengineeringspring.member.MemberService
+import com.example.harnessengineeringspring.member.UpdateMember
 import com.example.harnessengineeringspring.shared.api.AddMemberRequest
 import com.example.harnessengineeringspring.shared.api.ApiError
 import com.example.harnessengineeringspring.shared.api.DeleteMemberResponse
@@ -21,9 +26,10 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * The member HTTP boundary (design D1/D4): the only place that maps a member use-case result to an
- * HTTP response or an [ApiException]. Every route is nested under the group's token segment
- * (api-conventions); the token never appears in a body or a log line.
+ * The member HTTP boundary (design D1/D4): the only place that maps a member use-case result to
+ * an HTTP response or an [ApiException]. Every route is nested under the group's token segment
+ * (api-conventions); the web resolver verifies that token into a [ResolvedGroup] before any handler
+ * runs, so the token never appears in a handler, a body or a log line.
  */
 @RestController
 @RequestMapping("/api/v1/groups/{token}/members")
@@ -31,14 +37,12 @@ class MemberController(private val members: MemberService) {
 
     /** Adds a member to the addressed group; 201 with the active member. */
     @PostMapping
-    fun add(@PathVariable token: String, @RequestBody request: AddMemberRequest): ResponseEntity<MemberResponse> =
-        when (val result = members.add(GroupToken(token), request)) {
+    fun add(resolved: ResolvedGroup, @RequestBody request: AddMemberRequest): ResponseEntity<MemberResponse> =
+        when (val result = members.add(resolved, request)) {
             is AddMember.Added -> ResponseEntity.status(HttpStatus.CREATED).body(result.member)
 
             is AddMember.InvalidName ->
                 throw ApiException(ApiError.ValidationFailed(message = "member name must not be blank"))
-
-            is AddMember.GroupNotFound -> throw ApiException(ApiError.NotFound(message = "no such group"))
         }
 
     /**
@@ -47,12 +51,9 @@ class MemberController(private val members: MemberService) {
      */
     @GetMapping
     fun list(
-        @PathVariable token: String,
+        resolved: ResolvedGroup,
         @Suppress("UnusedParameter") @RequestParam atLeastSeq: Long?,
-    ): MemberListResponse = when (val result = members.list(GroupToken(token))) {
-        is MemberList.Listed -> result.response
-        is MemberList.GroupNotFound -> throw ApiException(ApiError.NotFound(message = "no such group"))
-    }
+    ): MemberListResponse = members.list(resolved)
 
     /**
      * Updates a member of the addressed group by its id. PATCH semantics (design D3): an absent field
@@ -61,12 +62,12 @@ class MemberController(private val members: MemberService) {
      */
     @PatchMapping("/{memberId}")
     fun update(
-        @PathVariable token: String,
+        resolved: ResolvedGroup,
         @PathVariable memberId: String,
         @RequestBody request: UpdateMemberRequest,
     ): MemberResponse {
         val id = MemberId.parse(memberId) ?: noSuchMember()
-        return when (val result = members.update(token = GroupToken(token), memberId = id, request = request)) {
+        return when (val result = members.update(resolved = resolved, memberId = id, request = request)) {
             is UpdateMember.Updated -> result.member
 
             is UpdateMember.InvalidName ->
@@ -84,9 +85,9 @@ class MemberController(private val members: MemberService) {
      * (design D6).
      */
     @DeleteMapping("/{memberId}")
-    fun delete(@PathVariable token: String, @PathVariable memberId: String): DeleteMemberResponse {
+    fun delete(resolved: ResolvedGroup, @PathVariable memberId: String): DeleteMemberResponse {
         val id = MemberId.parse(memberId) ?: noSuchMember()
-        return when (val result = members.delete(GroupToken(token), id)) {
+        return when (val result = members.delete(resolved, id)) {
             is DeleteMember.Deleted -> DeleteMemberResponse(seq = result.seq)
 
             DeleteMember.Referenced ->

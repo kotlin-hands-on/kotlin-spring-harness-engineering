@@ -2,12 +2,12 @@
 
 package com.example.harnessengineeringspring.member
 
-import com.example.harnessengineeringspring.shared.api.MemberListResponse
 import com.example.harnessengineeringspring.shared.api.MemberResponse
 
 /**
  * The results of the member use cases (design D4). Members are looked up only within the addressed
- * group: a member of another group is indistinguishable from an unknown id under this token.
+ * group: a member of another group is indistinguishable from an unknown id. The group itself is
+ * resolver-verified before any use case runs, so the results carry only member-level outcomes.
  *
  * [MustUseReturnValues] (on each interface and on the whole file) makes the compiler report a dropped
  * use-case result: ignoring it would silently swallow an [AddMember.InvalidName], [UpdateMember.NotFound]
@@ -20,18 +20,6 @@ sealed interface AddMember {
 
     /** The supplied name was missing or blank. */
     data object InvalidName : AddMember
-
-    /** The addressed token matches no group. */
-    data object GroupNotFound : AddMember
-}
-
-@MustUseReturnValues
-sealed interface MemberList {
-    /** The members of the addressed group, ordered by name then id, with their active states. */
-    data class Listed(val response: MemberListResponse) : MemberList
-
-    /** The addressed token matches no group. */
-    data object GroupNotFound : MemberList
 }
 
 @MustUseReturnValues
@@ -42,7 +30,7 @@ sealed interface UpdateMember {
     /** A supplied name was present but blank. */
     data object InvalidName : UpdateMember
 
-    /** The addressed group does not exist, or the id matches no member of it. */
+    /** The id matches no member of the addressed group. */
     data object NotFound : UpdateMember
 }
 
@@ -55,7 +43,7 @@ sealed interface DeleteMember {
      */
     data class Deleted(val seq: Long) : DeleteMember
 
-    /** The addressed group does not exist, or the id matches no member of it. */
+    /** The id matches no member of the addressed group. */
     data object NotFound : DeleteMember
 
     /**

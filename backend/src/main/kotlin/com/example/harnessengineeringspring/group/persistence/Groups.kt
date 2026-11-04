@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.persistence
+package com.example.harnessengineeringspring.group.persistence
 
 import org.jetbrains.exposed.v1.core.Table
 

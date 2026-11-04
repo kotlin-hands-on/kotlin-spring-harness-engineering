@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.group
+package com.example.harnessengineeringspring.group.api
 
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
@@ -277,6 +277,17 @@ class GroupControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired pr
         mockMvc.patch("/api/v1/groups/unknown-token-value") {
             contentType = MediaType.APPLICATION_JSON
             content = """{"name": "New name"}"""
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.error.type") { value("not_found") }
+        }
+    }
+
+    @Test
+    fun `renames only a known token even when the body is invalid`() {
+        mockMvc.patch("/api/v1/groups/unknown-token-value") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name": " \t "}"""
         }.andExpect {
             status { isNotFound() }
             jsonPath("$.error.type") { value("not_found") }

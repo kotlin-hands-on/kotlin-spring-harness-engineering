@@ -50,7 +50,13 @@ dependencies {
 
 exposed {
     migrations {
-        tablesPackage.set("com.example.harnessengineeringspring.persistence")
+        // Tables live in the slices' persistence packages (vertical-slices ADR); the plugin scans exactly these.
+        tablesPackages.set(
+            listOf(
+                "com.example.harnessengineeringspring.group.persistence",
+                "com.example.harnessengineeringspring.member.persistence",
+            ),
+        )
         testContainersImageName.set("postgres:18-alpine")
         fileDirectory.set(layout.projectDirectory.dir("src/main/resources/db/migration"))
     }

@@ -1,5 +1,6 @@
-package com.example.harnessengineeringspring.group
+package com.example.harnessengineeringspring.group.domain
 
+import com.example.harnessengineeringspring.group.GroupToken
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
 import java.security.SecureRandom

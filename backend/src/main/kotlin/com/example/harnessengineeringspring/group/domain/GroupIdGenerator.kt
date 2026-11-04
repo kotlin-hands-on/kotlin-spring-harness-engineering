@@ -1,5 +1,6 @@
-package com.example.harnessengineeringspring.group
+package com.example.harnessengineeringspring.group.domain
 
+import com.example.harnessengineeringspring.group.GroupId
 import org.springframework.stereotype.Component
 import kotlin.uuid.Uuid
 

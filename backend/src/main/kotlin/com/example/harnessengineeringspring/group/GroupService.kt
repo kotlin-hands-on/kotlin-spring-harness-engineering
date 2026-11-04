@@ -1,25 +1,31 @@
+@file:MustUseReturnValues
+
 package com.example.harnessengineeringspring.group
 
+import com.example.harnessengineeringspring.group.domain.GroupIdGenerator
+import com.example.harnessengineeringspring.group.domain.GroupTokenGenerator
+import com.example.harnessengineeringspring.group.persistence.GroupRepository
 import com.example.harnessengineeringspring.money.CurrencyResolution
 import com.example.harnessengineeringspring.money.resolveCurrency
-import com.example.harnessengineeringspring.persistence.Groups
 import com.example.harnessengineeringspring.shared.api.CreateGroupRequest
 import com.example.harnessengineeringspring.shared.api.GroupResponse
 import com.example.harnessengineeringspring.shared.api.UpdateGroupRequest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.update
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 /**
  * The group use cases (design D1/D4): plain-CRUD group state behind sealed results - group changes are
  * never ledger events. The group's ledger head is a constant until `ledger-core` wires it, so every
- * response reports [CURRENT_LEDGER_HEAD] (design D7).
+ * response reports [CURRENT_LEDGER_HEAD] (design D7). [MustUseReturnValues] (on this file) makes the
+ * compiler report a dropped use-case result - ignoring [resolve]'s null or a sealed rejection would
+ * silently swallow it.
  */
 @Service
-class GroupService(private val tokens: GroupTokenGenerator, private val ids: GroupIdGenerator) {
+class GroupService(
+    private val tokens: GroupTokenGenerator,
+    private val ids: GroupIdGenerator,
+    private val repository: GroupRepository,
+) {
 
     /**
      * Creates a group with a fixed currency and a freshly minted access token (design D2). The currency
@@ -36,56 +42,37 @@ class GroupService(private val tokens: GroupTokenGenerator, private val ids: Gro
     }
 
     /**
-     * Resolves a group by its access token (design D2): the incoming token is hashed and looked up in
-     * the unique digest index, so unknown and malformed tokens are indistinguishable.
+     * Resolves a group's access token to a verified [ResolvedGroup] (vertical-slices ADR, decision D-4):
+     * the incoming token is hashed and looked up in the unique digest index, so unknown and malformed
+     * tokens are indistinguishable - both yield null. Nullability replaces the old `GroupLookup` guard:
+     * the caller cannot ignore an unresolved token.
      */
     @Transactional(readOnly = true)
-    fun byToken(token: GroupToken): GroupLookup {
-        val row = Groups
-            .select(Groups.id, Groups.name, Groups.currency)
-            .where { Groups.tokenHash eq tokens.hashOf(token) }
-            .singleOrNull()
-            ?: return GroupLookup.NotFound
-        return GroupLookup.Found(
-            Group(id = GroupId(row[Groups.id]), name = row[Groups.name], currency = row[Groups.currency]),
-        )
+    fun resolve(token: GroupToken): ResolvedGroup? {
+        val group = repository.findByTokenHash(tokens.hashOf(token)) ?: return null
+        return ResolvedGroup(group)
     }
 
-    /** Reads a group addressed by its token; the response never carries the token (design D2). */
+    /** Reads the resolved group; the response never carries the token (design D2). */
     @Transactional(readOnly = true)
-    fun read(token: GroupToken): GroupRead = when (val found = byToken(token)) {
-        is GroupLookup.NotFound -> GroupRead.NotFound
-        is GroupLookup.Found -> GroupRead.Found(found.group.toResponse())
-    }
+    fun read(resolved: ResolvedGroup): GroupResponse = resolved.group.toResponse()
 
     /**
-     * Renames a group addressed by its token. Only the name changes: the id and the currency fixed at
+     * Renames the resolved group. Only the name changes: the id and the currency fixed at
      * creation never do (design D5) - a `currency` field in the request body is an unknown field and
      * is ignored by the tolerant decoder before this code runs.
      */
     @Transactional
-    fun rename(token: GroupToken, request: UpdateGroupRequest): GroupRename {
+    fun rename(resolved: ResolvedGroup, request: UpdateGroupRequest): GroupRename {
         if (request.name.isBlank()) return GroupRename.InvalidName
-        return when (val found = byToken(token)) {
-            is GroupLookup.NotFound -> GroupRename.NotFound
-
-            is GroupLookup.Found -> {
-                val group = found.group
-                Groups.update({ Groups.id eq group.id.value }) { it[Groups.name] = request.name }
-                GroupRename.Renamed(group.copy(name = request.name).toResponse())
-            }
-        }
+        repository.updateName(resolved.group.id, request.name)
+        return GroupRename.Renamed(resolved.group.copy(name = request.name).toResponse())
     }
 
     private fun insertGroup(request: CreateGroupRequest, currency: CurrencyResolution.Resolved): CreateGroup.Created {
         val token = tokens.next()
         val id = ids.next()
-        Groups.insert {
-            it[Groups.id] = id.value
-            it[Groups.name] = request.name
-            it[Groups.currency] = currency.code
-            it[Groups.tokenHash] = tokens.hashOf(token)
-        }
+        repository.insert(id = id, name = request.name, currency = currency.code, tokenHash = tokens.hashOf(token))
         return CreateGroup.Created(
             GroupResponse(
                 id = id.value.toString(),

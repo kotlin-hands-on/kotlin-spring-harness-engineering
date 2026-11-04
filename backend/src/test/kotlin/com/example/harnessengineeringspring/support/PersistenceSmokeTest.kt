@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.persistence
+package com.example.harnessengineeringspring.support
 
 import com.example.harnessengineeringspring.support.IntegrationTest
 import org.flywaydb.core.Flyway

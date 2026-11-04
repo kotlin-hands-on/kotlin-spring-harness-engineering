@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.member
+package com.example.harnessengineeringspring.member.api
 
 import com.example.harnessengineeringspring.shared.api.ApiJson
 import com.example.harnessengineeringspring.shared.api.GroupResponse
@@ -333,6 +333,17 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
     }
 
     @Test
+    fun `updates no member for an unknown group token`() {
+        mockMvc.patch("/api/v1/groups/unknown-token-value/members/${UUID.randomUUID()}") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name": "Alicia"}"""
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.error.type") { value("not_found") }
+        }
+    }
+
+    @Test
     fun `lists active and deactivated members with their state ordered by name`() {
         val group = createGroup()
         addMember(group, name = "Bob")
@@ -429,6 +440,14 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
         val group = createGroup()
 
         mockMvc.delete("/api/v1/groups/${group.token}/members/not-a-uuid").andExpect {
+            status { isNotFound() }
+            jsonPath("$.error.type") { value("not_found") }
+        }
+    }
+
+    @Test
+    fun `deletes no member for an unknown group token`() {
+        mockMvc.delete("/api/v1/groups/unknown-token-value/members/${UUID.randomUUID()}").andExpect {
             status { isNotFound() }
             jsonPath("$.error.type") { value("not_found") }
         }

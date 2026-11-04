@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.group
+package com.example.harnessengineeringspring.group.domain
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

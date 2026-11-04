@@ -13,7 +13,7 @@ Group expense-sharing application: a Kotlin Multiplatform API contract (`:shared
 | `:web` | Compose Multiplatform wasmJs browser app consuming `:shared`; publishes a `webDistribution` artifact that `:backend` consumes. |
 | `build-logic/` | Included Gradle build with convention plugins (`conventions.kotlin-jvm`, `conventions.kotlin-multiplatform`, `conventions.detekt`). Build changes go here. |
 | `openspec/` | Proposals and current specs — see workflow below. |
-| `docs/adr/` | Architecture Decision Records. Not yet created; the directory is created with the first ADR. |
+| `docs/adr/` | Architecture Decision Records (MADR-lite, `NNNN-title.md`); ADR-0001 records the vertical-slices layout. New shared top-level packages or slice-anatomy changes require a new ADR. |
 
 ## Commands
 

@@ -46,9 +46,9 @@ sealed interface GroupAccessResult {
 class GroupAccess(private val groups: GroupService) {
 
     /** Resolves the group addressed by [token] and validates [amount] against its fixed currency. */
-    fun check(token: GroupToken, amount: MoneyDto): GroupAccessResult = when (val found = groups.byToken(token)) {
-        is GroupLookup.NotFound -> GroupAccessResult.GroupNotFound
-        is GroupLookup.Found -> found.group.validate(amount)
+    fun check(token: GroupToken, amount: MoneyDto): GroupAccessResult {
+        val resolved = groups.resolve(token) ?: return GroupAccessResult.GroupNotFound
+        return resolved.group.validate(amount)
     }
 
     private fun Group.validate(amount: MoneyDto): GroupAccessResult =

@@ -1,4 +1,4 @@
-package com.example.harnessengineeringspring.persistence
+package com.example.harnessengineeringspring.member.persistence
 
 import com.example.harnessengineeringspring.support.IntegrationTest
 import org.springframework.beans.factory.annotation.Autowired

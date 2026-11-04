@@ -1,0 +1,68 @@
+# ADR 0001 (draft): Backend is organized in vertical slices with internal horizontal layers
+
+This is the full ADR text drafted by the `vertical-slices` OpenSpec change, incorporating the decisions the user made at the approval gate (both gate questions resolved: the resolver-throws design with both wire nuances accepted; the five-part slice anatomy below). On approval it is materialized verbatim (with only the status line updated) as `docs/adr/0001-vertical-slices.md` — the first ADR, creating `docs/adr/` — in MADR format (Markdown Any Decision Records). Format proposal for `docs/adr/`:
+
+- File name: `NNNN-title.md`, numbered ascending from `0001`.
+- Sections: `# NNNn. Title`, `## Status`, `## Context`, `## Decision`, `## Consequences` (MADR-lite; `## Options considered` appended where a rejected alternative deserves recording).
+- Status values: `Proposed` (awaiting explicit user approval) → `Accepted` (user approved) → `Superseded by ADR-NNNN` (with the note added to the old ADR; approved ADRs are otherwise immutable).
+
+---
+
+# 0001. Backend is organized in vertical slices with internal horizontal layers
+
+## Status
+
+Proposed (pending approval — an ADR only counts as decided once the user has explicitly approved it; approving the `vertical-slices` proposal at the gate approves this ADR).
+
+## Context
+
+The backend (`:backend`) grew a horizontal `persistence` package holding the Exposed tables (`Groups`, `Members`) that every feature reaches into, while the features themselves (`group`, `member`) are flat packages with no internal layering. Eleven queued changes (expenses, balances, settlements, ledger, activity feed, …) each add new features; whatever structure they copy becomes the structure the codebase keeps.
+
+Problems with the horizontal layout:
+
+- A feature's code is scattered across packages (`member` service + shared `persistence` tables), so understanding or changing one feature means visiting several places.
+- The `persistence` package is a structural dumping ground every feature may touch: nothing marks which tables belong to which feature, and nothing stops feature A's queries from drifting onto feature B's tables.
+- There is no explicit public boundary per feature: `MemberService` directly uses `GroupLookup`, `GroupService` and `MemberController` passes raw `GroupToken`s, so the group feature's internals are part of every other feature's surface.
+- Services query the Exposed DSL and table objects inline, so persistence mechanics are smeared across the use-case code.
+
+The user decided (D-1..D-4 below, D-1 expanded at the gate) to move to vertical slices with sub-horizontal layers, with each slice's public API available only through service(s) in the slice's root package.
+
+## Decision
+
+1. **Slice anatomy (D-1, as expanded at the gate).** Every backend feature slice is a top-level package under `com.example.harnessengineeringspring` with full internal layering from day one:
+   - **root package**: the slice's public API — its **service(s)** (`@Transactional` use-case orchestrators, the only entry point for other code) plus the public value types and sealed result types that cross the slice boundary. The root package follows the Single Responsibility Principle: **one service is the default; a slice may hold very few root services** when the domain's public API genuinely spans different aspects.
+   - **`api/`**: the `@RestController` and HTTP mapping (sealed result → HTTP response / `ApiException`) only.
+   - **`domain/`**: non-service machinery — pure logic, POKOs, type hierarchies, id/token generators — that is internal to the slice. (Types that cross the slice boundary — the vocabulary root services hand out — stay in the root per decision 2.)
+   - **`application/`** *(optional)*: internal services that keep root services focused by taking delegated work. Callable **only by the slice's own root services** — never from outside the slice, never from the slice's `api/`, `domain/` or `persistence/`. Created only when a root service actually delegates work to it; not created speculatively.
+   - **`persistence/`**: the slice's Exposed table objects **and repositories**. Repositories are the only query surface: root and application services never touch the Exposed DSL or table objects directly — all row access goes through a repository.
+   This is the canonical pattern all future slices copy. The root service *is* the use-case orchestrator; a thin root facade delegating one-to-one to `domain/` use-case classes is rejected as ceremony.
+2. **Public API = slice root (D-2).** Cross-slice code may reference only another slice's root types. The sub-packages `api/`, `domain/`, `application/`, `persistence/` are internal to their slice and off-limits outside it.
+3. **Enforcement (D-3).** The layout is enforced by ArchUnit rules in `ArchitectureTest` on the production bytecode — there is **no Gradle module split**. The rules are generic (no slice is enumerated):
+   - cross-slice dependencies are legal in exactly two shapes: the target class sits in the target slice's **root** package, or the edge is **table object → table object** — a slice's Exposed table referencing another slice's table for schema definition (foreign keys, e.g. `Members.groupId references Groups.id`). All other cross-slice sub-package access (targets in `..(slice).api..`, `..(slice).domain..`, `..(slice).application..`, `..(slice).persistence..`, or foreign tables reached from any non-table class) is a violation. **Cross-slice tables: allowed for schema, not for queries** — a table object may reference a foreign table to define an FK; nothing may query another slice's tables.
+   - the Exposed DSL (`org.jetbrains.exposed..`) **and Exposed `Table` subtypes** (the table objects) may be used only inside `..persistence..` sub-packages — services cannot even import a table object, only a repository;
+   - within a slice, only `api/` may depend on the shared `web` package;
+   - classes in an `..application..` package may be depended on only by their slice's root classes (the rule checks zero classes until the first `application/` package exists);
+   - controllers never depend on `GroupToken` — they receive the resolved context (see 4);
+   - controllers may not depend on `..persistence..`, `..domain..` or Exposed (generalizes `groups-and-members` design D8: "persistence stays behind the feature services" — same constraint, tightened to the slice layout).
+
+   **Heuristic for cross-slice DSL access (user policy, decided at the gate):** needing cross-slice query/DSL access to another slice's tables is a smell that the domains may have been split incorrectly, and a refactor (e.g. merging or re-splitting the slices) should be *considered*. Whether such a refactor is granted is the **user's** decision — never the agent's; the agent flags the smell, it does not restructure domains on its own authority. Note the enforcement limit honestly: bytecode analysis cannot distinguish a foreign-table column getter used in an FK definition (legal) from one used inside a cross-slice query's where-clause (forbidden) — both are accesses owned by the table class. The rules therefore scope the FK privilege to table objects as origins (any non-table class referencing a foreign table is a violation before it can query anything); the residual — what a slice's own table object does with its FK privilege — is governed by this heuristic and by review, not by bytecode rules.
+
+   **Frozen allowlist of shared top-level packages** (the only non-slice top-levels): the application root package (`com.example.harnessengineeringspring`, holding `HarnessEngineeringSpringApplication`), `web` (HTTP plumbing) and `money` (currency mapping); the `:shared` module's wire contract (`shared.api`) is likewise importable by everything. Nothing else may appear at the top level: a new top-level package is a new slice and must follow the anatomy of 1., or this ADR is amended/superseded. Extending the allowlist requires a new ADR.
+4. **Group-token resolution (D-4).** The group access token in the URL path (`/api/v1/groups/{token}/...`) is resolved once, at the web level: a WebMvc `HandlerMethodArgumentResolver` in `web/` reads the `{token}` path segment, calls the group slice's root service (`GroupService.resolve(token)`, repository-backed, returning a verified `ResolvedGroup` owned by the group root) and hands controllers the resolved context. Controllers — the group's own as well as every other slice's — receive the resolved context and never touch raw tokens. A token matching no group is rejected as `not_found` by the resolver before any handler runs; token-less routes (e.g. `POST /api/v1/groups`) declare no resolved parameter and are unaffected. Consequences accepted with this (approved at the gate): (a) unknown-token error message text is uniformly "no such group" (previously the member update/delete routes reported "no such member" for an unknown group token — status 404 and error code `not_found` are unchanged, no test pinned the text); (b) token resolution precedes body validation, so unknown-token + invalid-body requests answer 404 rather than 400 (previously the service checked the body first; no spec scenario or test pinned the combined case); (c) resolution runs in its own read-only transaction before the handler's transaction (no group deletion exists, so no read-verify-write race; a future group-deletion feature must re-verify inside its write transaction).
+
+## Options considered
+
+- **Horizontal layers for the whole app** (`api/`, `domain/`, `persistence/` top-levels): rejected — features scatter across packages, and the persistence ground is exactly what this ADR removes.
+- **Gradle module per slice**: rejected for now (user decision D-3) — ArchUnit gives the same boundary enforcement with none of the build-graph cost; recorded below as the natural supersession path.
+- **Services query the Exposed DSL directly, with repositories optional**: rejected at the gate — repositories in `persistence/` are the mandated query surface; the DSL and table objects are slice-internal persistence details.
+- **Resolver returns a sealed Verified/Unverified context that each controller maps**: rejected at the gate — preserves per-route error message text exactly but re-adds the per-route not_found mapping this decision exists to remove; every future controller repeats it.
+- **Thin root facade delegating to `domain/` use-case classes**: rejected as ceremony with one service per slice (see 1.).
+
+## Consequences
+
+- **Positive**: one package to read per feature; tables, queries and repositories live next to the feature they serve; use-case code carries no persistence mechanics; the public boundary of every slice is explicit, small (its root) and enforced by the build; new slices have a canonical shape to copy, including where delegation (`application/`) and queries (repositories) belong.
+- **Positive**: the `group`/`member` slices' public surface shrinks to reachable, meaningful API — `GroupService.resolve(token): ResolvedGroup?` replaces `byToken`/`GroupLookup` (nullability makes the indistinguishable unknown/malformed-token case explicit), and the sealed results shrink to reachable outcomes (`GroupRead`, `MemberList` and the `GroupNotFound` variants are deleted; `MemberService` no longer depends on the group slice beyond the shared `ResolvedGroup` type).
+- **Negative**: package count per feature grows from 1 to 4 (5 with `application/`); the ArchUnit formulation needs care to stay generic (a `slices()` rule with "any slice root" and "table → table" ignore clauses, plus assignability checks for `Table` subtypes, with a fallback to a custom `SliceAssignment`); controllers become untestable without the resolver being registered; repositories add one indirection per query; and the FK privilege of table objects is not fully policed by bytecode rules (see the heuristic in 3.) — review and the user's refactor decision cover that residual.
+- **Neutral**: Flyway migrations and DDL are untouched by table-object moves; Exposed/Spring wiring stays autoconfigured (repositories run inside the calling service's transaction, never their own); the test tree mirrors the slice layout (`<slice>/api`, `<slice>/domain`, `<slice>/persistence`).
+- **Lineage**: this ADR generalizes the `groups-and-members` decisions D7/D8 (architecture rules in `ArchitectureTest`; persistence behind feature services) rather than replacing them; their existing rules remain in force, tightened where noted in 3.
+- **Supersession**: a later Gradle module split (one module per slice) would make the cross-slice rules compile-time and is the expected future supersession of the ArchUnit-only enforcement — it requires a new ADR; this one then gets only a "superseded by" note. Likewise, any new shared top-level package (beyond the frozen allowlist above), any relaxation of the resolver/token or repository rules, and any change to the slice anatomy itself require a new ADR; approved ADRs are immutable apart from supersession notes.

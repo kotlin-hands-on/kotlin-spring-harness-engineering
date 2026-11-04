@@ -28,7 +28,8 @@ These additional references should also help you:
 Schema changes are Flyway scripts in `backend/src/main/resources/db/migration/`; Exposed never creates DDL at runtime
 (`spring.exposed.generate-ddl=false`).
 
-To generate a script from the Exposed tables in `com.example.harnessengineeringspring.persistence`:
+To generate a script from the Exposed tables in the slice `persistence/` packages
+(`com.example.harnessengineeringspring.group.persistence`, `com.example.harnessengineeringspring.member.persistence`):
 
 ```shell
 ./gradlew :backend:generateMigrations

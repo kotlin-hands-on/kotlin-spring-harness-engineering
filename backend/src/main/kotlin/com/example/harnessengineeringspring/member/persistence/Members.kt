@@ -1,5 +1,6 @@
-package com.example.harnessengineeringspring.persistence
+package com.example.harnessengineeringspring.member.persistence
 
+import com.example.harnessengineeringspring.group.persistence.Groups
 import org.jetbrains.exposed.v1.core.Table
 
 /**
