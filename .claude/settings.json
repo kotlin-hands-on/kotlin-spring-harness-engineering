@@ -12,6 +12,16 @@
             "statusMessage": "Harness preflight"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jbcontext index --silent --only-incremental",
+            "async": true
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -60,6 +70,18 @@
             "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/check_changed_modules.py\"",
             "timeout": 900,
             "statusMessage": "Running check on changed Gradle projects"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jbcontext index --silent --only-incremental",
+            "async": true
           }
         ]
       }

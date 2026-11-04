@@ -20,13 +20,6 @@
         "Authorization": "${CONTEXT7_API_KEY:-}"
       }
     },
-    "jbcontext": {
-      "type": "stdio",
-      "command": "${JBCONTEXT_BIN:-jbcontext}",
-      "args": [
-        "mcp"
-      ]
-    },
     "idea": {
       "url": "http://127.0.0.1:64342/stream",
       "type": "http",
