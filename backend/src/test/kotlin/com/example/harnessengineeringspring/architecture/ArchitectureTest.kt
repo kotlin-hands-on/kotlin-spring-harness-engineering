@@ -7,6 +7,7 @@ import com.tngtech.archunit.junit.ArchTest
 import com.tngtech.archunit.lang.ArchRule
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 import com.tngtech.archunit.library.GeneralCodingRules
+import org.springframework.web.bind.annotation.RestController
 
 @AnalyzeClasses(
     packagesOf = [HarnessEngineeringSpringApplication::class],
@@ -41,5 +42,15 @@ class ArchitectureTest {
         .because(
             "wire DTOs in ..shared.api.. are the API contract; ledger event payloads and persistence types are " +
                 "separate types even where their JSON shapes coincide (design D7)",
+        )
+
+    // Controllers talk to services and shared.api DTOs only; the rule was proven to bite once with a
+    // temporary violating controller (verify-then-revert, task 9.1 of groups-and-members).
+    @ArchTest
+    val rest_controllers_do_not_depend_on_persistence: ArchRule = noClasses()
+        .that().areAnnotatedWith(RestController::class.java)
+        .should().dependOnClassesThat().resideInAnyPackage("..persistence..", "org.jetbrains.exposed..")
+        .because(
+            "controllers are the HTTP boundary only; persistence stays behind the feature services (design D8)",
         )
 }

@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS "groups" (id uuid PRIMARY KEY, "name" TEXT NOT NULL, currency VARCHAR(3) NOT NULL, token_hash VARCHAR(64) NOT NULL);
+ALTER TABLE "groups" ADD CONSTRAINT groups_token_hash_unique UNIQUE (token_hash);

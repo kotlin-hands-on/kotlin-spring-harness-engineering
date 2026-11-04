@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS members (id uuid PRIMARY KEY, group_id uuid NOT NULL, "name" TEXT NOT NULL, active BOOLEAN NOT NULL, CONSTRAINT fk_members_group_id__id FOREIGN KEY (group_id) REFERENCES "groups"(id) ON DELETE RESTRICT ON UPDATE RESTRICT);

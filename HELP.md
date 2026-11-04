@@ -38,7 +38,7 @@ To generate a script from the Exposed tables in `com.example.harnessengineerings
   and diffs it against the Exposed tables.
 * The task is **explicit only** - it is never part of `build`, `check`, `assemble` or `processResources`.
 * Review the generated file before committing it.
-* While no tables exist the task completes with `No migrations found` / `Generated 0 migrations` and writes nothing.
+* The task replays the committed history (V1 groups, V2 members) and writes a new migration only when the Exposed tables drift from it.
 
 # Local development
 

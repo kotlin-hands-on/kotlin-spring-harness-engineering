@@ -6,13 +6,14 @@ import com.example.harnessengineeringspring.shared.api.MoneyDto
 import java.math.BigDecimal
 import javax.money.Monetary
 import javax.money.MonetaryAmount
-import javax.money.UnknownCurrencyException
+import javax.money.MonetaryException
 
 /**
  * Result of mapping the wire representation of money to a [MonetaryAmount].
  *
- * An unresolvable currency code is a domain condition, so it is reported as [UnknownCurrency] instead of thrown;
- * callers translate it into a `validation_failed` rejection.
+ * A currency code that cannot be resolved to exactly one currency - unknown, or ambiguous like `A..`,
+ * which matches several - is a domain condition, so it is reported as [UnknownCurrency] instead of
+ * thrown; callers translate it into a `validation_failed` rejection.
  *
  * [MustUseReturnValues] (on this interface and on the whole file) makes the compiler report a dropped mapping
  * result: ignoring the return value of [toMonetaryAmount] would silently swallow an [UnknownCurrency] failure.
@@ -33,7 +34,7 @@ sealed interface MoneyMapping {
 fun MoneyDto.toMonetaryAmount(): MoneyMapping {
     val currency = try {
         Monetary.getCurrency(currency)
-    } catch (_: UnknownCurrencyException) {
+    } catch (_: MonetaryException) {
         return MoneyMapping.UnknownCurrency(code = currency)
     }
     val scaled = BigDecimal(minor).movePointLeft(currency.defaultFractionDigits)

@@ -45,6 +45,13 @@ class MoneyMappingTest {
     }
 
     @Test
+    fun `yields the unknown currency result instead of throwing for a code matching several currencies`() {
+        val result = MoneyDto(minor = 1, currency = "A..").toMonetaryAmount()
+
+        assertEquals(MoneyMapping.UnknownCurrency(code = "A.."), result)
+    }
+
+    @Test
     fun `maps a computed monetary amount back to the wire representation`() {
         val amount = Monetary.getDefaultAmountFactory()
             .setCurrency("EUR")
